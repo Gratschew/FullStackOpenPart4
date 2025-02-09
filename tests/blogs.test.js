@@ -108,6 +108,77 @@ test("responds with 400 Bad Request if url is missing", async () => {
   assert.strictEqual(response.body.error, "url is required"); // Check error message
 });
 
+test("successfully deletes a blog post", async () => {
+  // First, create a new blog post to delete later
+  const newBlog = {
+    title: "Blog to be Deleted",
+    author: "John Doe",
+    url: "http://delete.com",
+    likes: 10,
+  };
+
+  const createResponse = await api.post("/api/blogs").send(newBlog).expect(201); // Check successful creation
+
+  const blogId = createResponse.body.id; // Get the ID of the newly created blog
+  // Now, delete the blog by its ID
+  await api.delete(`/api/blogs/${blogId}`).expect(204); // Expect successful deletion with no content
+
+  // Verify that the blog has been deleted
+  const blogsAfterDelete = await api.get("/api/blogs");
+  const blogIds = blogsAfterDelete.body.map((blog) => blog.id);
+  assert.strictEqual(blogIds.includes(blogId), false); // Check that the deleted blog is not in the list
+});
+
+test("returns 400 if blog to delete does not exist", async () => {
+  // Try to delete a blog that doesn't exist
+  const invalidId = "lol123";
+
+  const response = await api.delete(`/api/blogs/${invalidId}`).expect(400); // Expect 400 (Bad request, Invalid blog ID)
+
+  assert.strictEqual(response.body.error, "Invalid blog ID");
+});
+
+test("successfully updates the likes of a blog", async () => {
+  const newBlog = {
+    title: "Blog to be Updated",
+    author: "Jane Doe",
+    url: "http://update.com",
+    likes: 5,
+  };
+
+  const createResponse = await api.post("/api/blogs").send(newBlog).expect(201); // Check successful creation
+
+  const blogId = createResponse.body.id; // Get the ID of the newly created blog
+
+  const updatedBlogData = {
+    likes: 15, // Update the likes
+  };
+
+  const updateResponse = await api
+    .put(`/api/blogs/${blogId}`)
+    .send(updatedBlogData)
+    .expect(200); // Expect the updated blog
+
+  assert.strictEqual(updateResponse.body.likes, 15); // Verify that likes were updated
+
+  // Verify that the updated blog's likes are correct in the system
+  const blogsAfterUpdate = await api.get("/api/blogs");
+  const updatedBlog = blogsAfterUpdate.body.find((blog) => blog.id === blogId);
+  assert.strictEqual(updatedBlog.likes, 15); // Check that the likes were updated
+});
+
+test("returns 404 if blog to update does not exist", async () => {
+  const nonExistentId = "60f7c3a4c2e15b1b8f4c9a14";
+  const updatedBlogData = { likes: 10 };
+
+  const response = await api
+    .put(`/api/blogs/${nonExistentId}`)
+    .send(updatedBlogData)
+    .expect(404); // Expect 404 (Blog not found)
+
+  assert.strictEqual(response.body.error, "Blog not found");
+});
+
 after(async () => {
   await mongoose.connection.close();
 });
